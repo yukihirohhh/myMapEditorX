@@ -16,7 +16,6 @@ void Stage::SetBlockHeight(int _x, int _z, int _height)
 	table_[_x][_z].height = _height;
 }
 
-//コンストラクタ
 Stage::Stage(GameObject* parent)
 	:GameObject(parent, "Stage"), mode_(0), select_(0)
 {
@@ -35,7 +34,6 @@ Stage::~Stage()
 {
 }
 
-//初期化
 void Stage::Initialize()
 {
 	string modelname[] = {
@@ -46,12 +44,10 @@ void Stage::Initialize()
 		"BoxWater.fbx"
 	};
 	string fname_base = "assets/";
-	//モデルデータのロード
 	for (int i = 0; i < MODEL_NUM; i++) {
 		hModel_[i] = Model::Load(fname_base + modelname[i]);
 		assert(hModel_[i] >= 0);
 	}
-	//tableにブロックのタイプをセットしてやろう！
 	for (int z = 0; z < ZSIZE; z++) {
 		for (int x = 0; x < XSIZE; x++) {
 			SetBlock(x, z, (BLOCKTYPE)(0));
@@ -61,7 +57,6 @@ void Stage::Initialize()
 
 }
 
-//更新
 void Stage::Update()
 {
 	if (!Input::IsMouseButtonDown(0)) {
@@ -69,8 +64,6 @@ void Stage::Update()
 	}
 	float w = (float)(Direct3D::scrWidth / 2.0f);
 	float h = (float)(Direct3D::scrHeight / 2.0f);
-	//Offsetx,y は0
-	//minZ =0 maxZ = 1
 
 	XMMATRIX vp =
 	{
@@ -154,7 +147,6 @@ void Stage::Update()
 	}
 }
 
-//描画
 void Stage::Draw()
 {
 	//Model::SetTransform(hModel_, transform_);
@@ -179,10 +171,11 @@ void Stage::Draw()
 	}
 }
 
-//開放
 void Stage::Release()
 {
+
 }
+
 
 BOOL Stage::DialogProc(HWND hDlg, UINT msg, WPARAM wp, LPARAM lp)
 {
@@ -225,59 +218,106 @@ BOOL Stage::DialogProc(HWND hDlg, UINT msg, WPARAM wp, LPARAM lp)
 
 void Stage::Save()
 {
-	char fileName[MAX_PATH] = "無題.map";  //ファイル名を入れる変数
+	char fileName[MAX_PATH] = "マップデータ.map";  // ファイル名を入れる変数
 
-	//「ファイルを保存」ダイアログの設定
-	OPENFILENAME ofn;                         	//名前をつけて保存ダイアログの設定用構造体
-	ZeroMemory(&ofn, sizeof(ofn));            	//構造体初期化
-	ofn.lStructSize = sizeof(OPENFILENAME);   	//構造体のサイズ
-	ofn.lpstrFilter = TEXT("マップデータ(*.map)\0*.map\0")        //─┬ファイルの種類
-		TEXT("すべてのファイル(*.*)\0*.*\0\0");     //─┘
-	ofn.lpstrFile = fileName;               	//ファイル名
-	ofn.nMaxFile = MAX_PATH;               	//パスの最大文字数
-	ofn.Flags = OFN_OVERWRITEPROMPT;   		//フラグ（同名ファイルが存在したら上書き確認）
-	ofn.lpstrDefExt = "map";                  	//デフォルト拡張子
+	// 「ファイルを保存」ダイアログの設定
+	OPENFILENAME ofn;
+	ZeroMemory(&ofn, sizeof(ofn));
+	ofn.lStructSize = sizeof(OPENFILENAME);
+	ofn.lpstrFilter = TEXT("マップデータ(*.map)\0*.map\0")
+		TEXT("すべてのファイル(*.*)\0*.*\0\0");
+	ofn.lpstrFile = fileName;
+	ofn.nMaxFile = MAX_PATH;
+	ofn.Flags = OFN_OVERWRITEPROMPT;
+	ofn.lpstrDefExt = "map";
 
-	//「ファイルを保存」ダイアログ
-	BOOL selFile;
-	selFile = GetSaveFileName(&ofn);
+	BOOL selFile = GetSaveFileName(&ofn);
 
-	//キャンセルしたら中断
 	if (selFile == FALSE) return;
 
-
-
-	HANDLE hFile;
-	hFile = CreateFile(
-		fileName,    //ファイル名
-		GENERIC_WRITE,  //アクセスモード
-		0,
-		NULL,
-		CREATE_ALWAYS,     //作成方法
-		FILE_ATTRIBUTE_NORMAL,
+	// ファイルを開く（書き込み専用、常に新規作成または上書き）
+	HANDLE hFile = CreateFile(
+		fileName,                // ファイル名
+		GENERIC_WRITE,           // 書き込みアクセスモード
+		0,                       // 共有モードなし
+		NULL,                    // セキュリティ属性
+		CREATE_ALWAYS,           // 常に新しいファイルを作成
+		FILE_ATTRIBUTE_NORMAL,   // 通常ファイル属性
 		NULL
 	);
 
-	std::string data = "";
+	if (hFile == INVALID_HANDLE_VALUE) {
+		MessageBox(NULL, "失敗", "エラー", MB_OK | MB_ICONERROR);
+		return;
+	}
 
+	DWORD bytesWritten = 0;
 
-
-	//data.length()
-
-
-	DWORD bytes = 0;
-	WriteFile(
-		hFile,              //ファイルハンドル
-		"ABCDEF",          //保存したい文字列
-		12,                  //保存する文字数
-		&bytes,             //保存したサイズ
-		NULL
-	);
-
-
+	// ブロックデータを書き込む
+	for (int z = 0; z < ZSIZE; ++z) {
+		for (int x = 0; x < XSIZE; ++x) {
+			BLOCKDATA blockData = table_[x][z];  // 各ブロックのデータをコピー
+			WriteFile(
+				hFile,                         // ファイルハンドル
+				&blockData,                    // 書き込むデータ
+				sizeof(BLOCKDATA),             // ブロックデータのサイズ
+				&bytesWritten,                 // 書き込んだバイト数
+				NULL                           // オーバーラップ構造体（使用しない）
+			);
+		}
+	}
 
 	CloseHandle(hFile);
+}
 
+
+void Stage::Open()
+{
+	char fileName[MAX_PATH] = "マップデータ.map";
+
+	OPENFILENAME ofn;
+	ZeroMemory(&ofn, sizeof(ofn));
+	ofn.lStructSize = sizeof(OPENFILENAME);
+	ofn.lpstrFilter = TEXT("マップデータ(*.map)\0*.map\0")
+		TEXT("すべてのファイル(*.*)\0*.*\0\0");
+	ofn.lpstrFile = fileName;
+	ofn.nMaxFile = MAX_PATH;
+	ofn.Flags = OFN_FILEMUSTEXIST;
+	ofn.lpstrDefExt = "map";
+
+	BOOL selFile = GetOpenFileName(&ofn);
+
+	// ファイルを開く (読み込み専用)
+	HANDLE hFile = CreateFile(
+		fileName,              // ファイル名
+		GENERIC_READ,          // 読み込みアクセスモード
+		0,                     // 共有モードなし
+		NULL,                  // セキュリティ属性
+		OPEN_EXISTING,         // 既存ファイルを開く
+		FILE_ATTRIBUTE_NORMAL, // 通常ファイル属性
+		NULL
+	);
+
+	DWORD fileSize = GetFileSize(hFile, NULL);
+
+	DWORD bytesRead = 0;
+	for (int z = 0; z < ZSIZE; ++z) {
+		for (int x = 0; x < XSIZE; ++x) {
+			BLOCKDATA blockData;
+			ReadFile(
+				hFile,                  // ファイルハンドル
+				&blockData,             // 読み込むデータのバッファ
+				sizeof(BLOCKDATA),      // 読み込むデータのサイズ
+				&bytesRead,             // 実際に読み込んだバイト数
+				NULL                    // オーバーラップ構造体（使用しない）
+			);
+
+			table_[x][z] = blockData;  // 読み込んだデータをテーブルに適用
+		}
+	}
+
+	// ファイルを閉じる
+	CloseHandle(hFile);
 
 }
 

@@ -35,7 +35,6 @@ public:
     void Update() override;
     void Draw() override;
     void Release() override;
-    LRESULT WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
     BOOL DialogProc(HWND hDlg, UINT msg, WPARAM wp, LPARAM lp);
     void Save();
     void Open();
